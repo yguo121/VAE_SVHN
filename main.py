@@ -18,12 +18,14 @@ import matplotlib
 from dataset import *
 from sys import exit
 
-dataset = SVHNDataset()
+dataset = SVHNDataset(db_path=".")
 
 input_dim = 1024
-hidden_encoder_dim = 400
-hidden_decoder_dim = 400
-latent_dim = 20
+hidden_encoder_dim = 500
+hidden_encoder2_dim = 200
+hidden_decoder_dim = 200
+hidden_decoder2_dim = 500
+latent_dim = 30
 lam = 0
 
 def weight_variable(shape):
@@ -37,22 +39,29 @@ def bias_variable(shape):
 x = tf.placeholder("float", shape=[None, input_dim])
 l2_loss = tf.constant(0.0)
 
+# Hidden layer encoder
 W_encoder_input_hidden = weight_variable([input_dim,hidden_encoder_dim])
 b_encoder_input_hidden = bias_variable([hidden_encoder_dim])
 l2_loss += tf.nn.l2_loss(W_encoder_input_hidden)
 
-# Hidden layer encoder
 hidden_encoder = tf.nn.relu(tf.matmul(x, W_encoder_input_hidden) + b_encoder_input_hidden)
 
-W_encoder_hidden_mu = weight_variable([hidden_encoder_dim,latent_dim])
+# Hidden layer encoder2
+W_encoder2_input_hidden = weight_variable([hidden_encoder_dim,hidden_encoder2_dim])
+b_encoder2_input_hidden = bias_variable([hidden_encoder2_dim])
+l2_loss += tf.nn.l2_loss(W_encoder2_input_hidden)
+
+hidden_encoder2 = tf.nn.relu(tf.matmul(hidden_encoder, W_encoder2_input_hidden) + b_encoder2_input_hidden)
+
+
+
+
+# Mu encoder
+W_encoder_hidden_mu = weight_variable([hidden_encoder2_dim,latent_dim])
 b_encoder_hidden_mu = bias_variable([latent_dim])
 l2_loss += tf.nn.l2_loss(W_encoder_hidden_mu)
 
-'''
-Gaussian MLP?
-'''
-# Mu encoder
-mu_encoder = tf.matmul(hidden_encoder, W_encoder_hidden_mu) + b_encoder_hidden_mu
+mu_encoder = tf.matmul(hidden_encoder2, W_encoder_hidden_mu) + b_encoder_hidden_mu
 
 W_encoder_hidden_logvar = weight_variable([hidden_encoder_dim,latent_dim])
 b_encoder_hidden_logvar = bias_variable([latent_dim])
@@ -68,14 +77,25 @@ epsilon = tf.random_normal(tf.shape(logvar_encoder), name='epsilon')
 std_encoder = tf.exp(0.5 * logvar_encoder)
 z = mu_encoder + tf.multiply(std_encoder, epsilon)
 
+
+# Hidden layer decoder
 W_decoder_z_hidden = weight_variable([latent_dim,hidden_decoder_dim])
 b_decoder_z_hidden = bias_variable([hidden_decoder_dim])
 l2_loss += tf.nn.l2_loss(W_decoder_z_hidden)
 
-# Hidden layer decoder
 hidden_decoder = tf.nn.relu(tf.matmul(z, W_decoder_z_hidden) + b_decoder_z_hidden)
 
-W_decoder_hidden_reconstruction = weight_variable([hidden_decoder_dim, input_dim])
+# Hidden layer decoder2
+W_decoder2_z_hidden = weight_variable([hidden_decoder_dim,hidden_decoder2_dim])
+b_decoder2_z_hidden = bias_variable([hidden_decoder2_dim])
+l2_loss += tf.nn.l2_loss(W_decoder2_z_hidden)
+
+hidden_decoder2 = tf.nn.relu(tf.matmul(hidden_decoder, W_decoder2_z_hidden) + b_decoder2_z_hidden)
+
+
+# decoder
+
+W_decoder_hidden_reconstruction = weight_variable([hidden_decoder2_dim, input_dim])
 b_decoder_hidden_reconstruction = bias_variable([input_dim])
 l2_loss += tf.nn.l2_loss(W_decoder_hidden_reconstruction)
 
@@ -83,13 +103,13 @@ l2_loss += tf.nn.l2_loss(W_decoder_hidden_reconstruction)
 
 KLD = -0.5 * tf.reduce_sum(1 + logvar_encoder - tf.pow(mu_encoder, 2) - tf.exp(logvar_encoder), reduction_indices=1)
 
-x_hat = tf.matmul(hidden_decoder, W_decoder_hidden_reconstruction) + b_decoder_hidden_reconstruction
+x_hat = tf.matmul(hidden_decoder2, W_decoder_hidden_reconstruction) + b_decoder_hidden_reconstruction
 
 '''
 Computes sigmoid cross entropy given `logits`.
 What is logits?
 '''
-BCE = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=x_hat, targets=x), reduction_indices=1)
+BCE = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=x_hat, labels=x), reduction_indices=1)
 
 loss = tf.reduce_mean(BCE + KLD)
 
@@ -113,7 +133,7 @@ tf.train.AdamOptimizer(learning rate)
 tf.train.AdamOptimizer.minimize(self,loss)
 loss = a tensor containing the value to minimize
 '''
-train_step = tf.train.AdamOptimizer(0.01).minimize(regularized_loss)
+train_step = tf.train.AdamOptimizer(0.0001).minimize(regularized_loss)
 
 # add op for merging summary
 summary_op = tf.summary.merge_all()
@@ -121,7 +141,7 @@ summary_op = tf.summary.merge_all()
 # add Saver ops
 saver = tf.train.Saver()
 
-n_steps = int(2e3)
+n_steps = int(1e4)
 batch_size = 100
       
 with tf.Session() as sess:
@@ -129,7 +149,7 @@ with tf.Session() as sess:
 
   for step in range(1, n_steps):
     batch = dataset.next_batch(batch_size)
-    feed_dict = {x: np.transpose(batch[0].reshape((1024,3)),(1,0))}
+    feed_dict = {x: batch.reshape((batch_size,input_dim,3))[:,:,0]}
     _, cur_loss=sess.run([train_step, loss], feed_dict=feed_dict)
 #    summary_writer.add_summary(summary_str, step)
 

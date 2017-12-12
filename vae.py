@@ -32,7 +32,7 @@ get_ipython().magic('matplotlib inline')
 np.random.seed(0)
 tf.set_random_seed(0)
 
-dataset = SVHNDataset()
+dataset = SVHNDataset('.')
 n_samples=dataset.train_size
 # In[2]:
 
@@ -109,7 +109,7 @@ class VariationalAutoencoder(object):
                                dtype=tf.float32)
         # z = mu + sigma*epsilon
         self.z = tf.add(self.z_mean, 
-                        tf.mul(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps))
+                        tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps))
 
         # Use generator to determine mean of
         # Bernoulli distribution of reconstructed input
@@ -245,8 +245,8 @@ def train(network_architecture, learning_rate=0.001,
         total_batch = int(n_samples / batch_size)
         # Loop over all batches
         for i in range(total_batch):
-            batch_xs= dataset.next_batch(batch_size).reshape(batch_size,1024,3)[:,:,1]
-
+            #batch_xs= dataset.next_batch(batch_size).reshape(batch_size,1024,3)[:,:,1]
+            batch_xs= dataset.next_batch(batch_size).reshape(batch_size,1024)
             # Fit training using batch data
             cost = vae.partial_fit(batch_xs)
             # Compute average loss
@@ -272,21 +272,23 @@ network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neuron
          n_input=1024, # 
          n_z=20)  # dimensionality of latent space
 
-vae = train(network_architecture, training_epochs=10)
+vae = train(network_architecture, training_epochs=30)
 
 
 # Based on this we can sample some test inputs and visualize how well the VAE can reconstruct those. In general the VAE does really well.
 
 # In[7]:
 
-play = dataset.next_test_batch(100).reshape(100,1024,3)
-x_sample = play[:,:,1][2,].reshape(1,1024)
-plt.imshow(x_sample.reshape(32, 32), vmin=0, vmax=1, cmap="gray")
+#play = dataset.next_test_batch(100).reshape(100,1024)
+#x_sample = play[:,:,1][2,].reshape(1,1024)
+x_sample = dataset.next_test_batch(100)[0].reshape(100,1024)
 x_reconstruct = vae.reconstruct(x_sample)
+# plt.imshow(x_sample.reshape(32, 32), vmin=0, vmax=1, cmap="gray")
+# x_reconstruct = vae.reconstruct(x_sample)
 
 
-x_sample1 = play[2]
-plt.imshow(x_sample1.reshape(32, 32,3), vmin=0, vmax=1)
+#x_sample1 = play[2]
+#plt.imshow(x_sample1.reshape(32, 32,3), vmin=0, vmax=1)
 
 
 plt.figure(figsize=(8, 12))
@@ -316,15 +318,18 @@ network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neuron
          n_input=1024, 
          n_z=2)  # dimensionality of latent space
 
-vae_2d = train(network_architecture, training_epochs=10)
+vae_2d = train(network_architecture, training_epochs=30)
 
 
 # In[9]:
 
-x_sample = dataset.next_test_batch(5000).reshape(100,1024,3)[:,:,1].reshape(5000,1024)
+#x_sample = dataset.next_test_batch(5000).reshape(100,1024,3)[:,:,1].reshape(5000,1024)
+x_sample, y_sample = dataset.next_test_batch(5000)
+x_sample = x_sample.reshape(5000,1024)
 z_mu = vae_2d.transform(x_sample)
 plt.figure(figsize=(8, 6)) 
-plt.scatter(z_mu[:, 0], z_mu[:, 1], c=np.argmax(y_sample, 1))
+# plt.scatter(z_mu[:, 0], z_mu[:, 1], c=np.argmax(y_sample, 1))
+plt.scatter(z_mu[:, 0], z_mu[:, 1], c=y_sample.reshape(5000))
 plt.colorbar()
 plt.grid()
 
