@@ -1,51 +1,37 @@
-## Reference: https://jmetzen.github.io/2015-11-27/vae.html
+"""
+Project Name: Variational Autoencoder (Basic Model)
+Author: Yue Jin, Dinghui Li
+Date: Dec 16, 2017
 
-## Variational Autoencoder in TensorFlow
+Reference: 
+    https://jmetzen.github.io/2015-11-27/vae.html
+    
 
-# The main motivation for this post was that I wanted to get more experience with both [Variational Autoencoders](http://arxiv.org/abs/1312.6114) (VAEs) and with [Tensorflow](http://www.tensorflow.org/). Thus, implementing the former in the latter sounded like a good idea for learning about both at the same time. This post summarizes the result.
-# 
-# Note: The post was updated on December 7th 2015:
-#   * a bug in the computation of the latent_loss was fixed (removed an erroneous factor 2). Thanks Colin Fang for pointing this out.
-#   * Using a Bernoulli distribution rather than a Gaussian distribution in the generator network
-# 
-# Note: The post was updated on January 3rd 2017:
-#   * changes required for supporting TensorFlow v0.12 and Python 3 support
-# 
-# Let us first do the necessary imports, load the data (MNIST), and define some helper functions.
+"""
 
-# In[1]:
+
+# import packages
 from __future__ import division
 from __future__ import print_function
 import os.path
-
 import tensorflow as tf
 import numpy as np
-
 import scipy.io as sio
 import matplotlib
+from matplotlib import pyplot as plt
 from dataset import *
 from sys import exit
-from matplotlib import pyplot as plt
 
+# Some Settings
 get_ipython().magic('matplotlib inline')
-
 np.random.seed(0)
 tf.set_random_seed(0)
 
+
+# Load SVHN Data
 dataset = SVHNDataset('.')
 n_samples=dataset.train_size
-# In[2]:
 
-# Load MNIST data in a format suited for tensorflow.
-# The script input_data is available under this URL:
-# https://raw.githubusercontent.com/tensorflow/tensorflow/master/tensorflow/examples/tutorials/mnist/input_data.py
-'''
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-n_samples = mnist.train.num_examples
-'''
-
-# In[3]:
 
 def xavier_init(fan_in, fan_out, constant=1): 
     """ Xavier initialization of network weights"""
@@ -57,28 +43,20 @@ def xavier_init(fan_in, fan_out, constant=1):
                              dtype=tf.float32)
 
 
-# Based on this, we define now a class "VariationalAutoencoder" with a [sklearn](http://scikit-learn.org)-like interface that can be trained incrementally with mini-batches using partial_fit. The trained model can be used to reconstruct unseen input, to generate new samples, and to map inputs to the latent space.
-
-# In[4]:
-
 class VariationalAutoencoder(object):
     """ Variation Autoencoder (VAE) with an sklearn-like interface implemented using TensorFlow.
-    
-    This implementation uses probabilistic encoders and decoders using Gaussian 
-    distributions and  realized by multi-layer perceptrons. The VAE can be learned
-    end-to-end.
-    
+    https://jmetzen.github.io/2015-11-27/vae.html
     See "Auto-Encoding Variational Bayes" by Kingma and Welling for more details.
     """
-    def __init__(self, network_architecture, transfer_fct=tf.nn.softplus, 
+    def __init__(self, network_architecture, transfer_fct=tf.nn.relu, 
                  learning_rate=0.001, batch_size=100):
         self.network_architecture = network_architecture
         self.transfer_fct = transfer_fct
         self.learning_rate = learning_rate
         self.batch_size = batch_size
-        
         # tf Graph input
         self.x = tf.placeholder(tf.float32, [None, network_architecture["n_input"]])
+#        self.x = tf.placeholder(tf.float32, [None, 32, 32, 1])
         
         # Create autoencoder network
         self._create_network()
@@ -100,7 +78,7 @@ class VariationalAutoencoder(object):
         # Use recognition network to determine mean and 
         # (log) variance of Gaussian distribution in latent
         # space
-        self.z_mean, self.z_log_sigma_sq =             self._recognition_network(network_weights["weights_recog"], 
+        self.z_mean, self.z_log_sigma_sq = self._recognition_network(network_weights["weights_recog"], 
                                       network_weights["biases_recog"])
 
         # Draw one sample z from Gaussian distribution
@@ -149,7 +127,12 @@ class VariationalAutoencoder(object):
         layer_1 = self.transfer_fct(tf.add(tf.matmul(self.x, weights['h1']), 
                                            biases['b1'])) 
         layer_2 = self.transfer_fct(tf.add(tf.matmul(layer_1, weights['h2']), 
-                                           biases['b2'])) 
+                                           biases['b2']))
+#        e_conv1 = self.transfer_fct(tf.layers.conv2d(self.x, 16, 5, strides=2, name='e_conv1'))
+#        e_conv2 = self.transfer_fct(tf.layers.conv2d(e_conv1, 32, 5, strides=2,   name='e_conv2'))
+#        e_conv2_flat = tf.reshape(e_conv2, [batch_size, -1])
+#        z_mean = tf.layers.dense(e_conv2_flat, 32, name='mean')
+#        z_log_sigma_sq = tf.layers.dense(e_conv2_flat, 32, name='stddev')
         z_mean = tf.add(tf.matmul(layer_2, weights['out_mean']),
                         biases['out_mean'])
         z_log_sigma_sq =             tf.add(tf.matmul(layer_2, weights['out_log_sigma']), 
@@ -166,6 +149,12 @@ class VariationalAutoencoder(object):
                                            biases['b2'])) 
         x_reconstr_mean =             tf.nn.sigmoid(tf.add(tf.matmul(layer_2, weights['out_mean']), 
                                  biases['out_mean']))
+#        d_fc1 = self.transfer_fct(tf.layers.dense(self.z, 7*7*32, name='d_fc1'))
+#        d_fc1 = tf.reshape(d_fc1, [batch_size, 7,7,32])
+#        e_transpose_conv1 = self.transfer_fct(tf.layers.conv2d_transpose(d_fc1, 16, 5, strides=2, name='e_transpose_conv1'))
+#        e_transpose_conv2 = self.transfer_fct(tf.layers.conv2d_transpose(e_transpose_conv1, 1, 5, strides=2, name='e_transpose_conv2'))
+#        x_reconstr_mean = e_transpose_conv2[:,:32,:32,:]
+        
         return x_reconstr_mean
             
     def _create_loss_optimizer(self):
@@ -228,14 +217,11 @@ class VariationalAutoencoder(object):
                              feed_dict={self.x: X})
 
 
-# In general, implementing a VAE in tensorflow is relatively straightforward (in particular since we don not need to code the gradient computation). A bit confusing is potentially that all the logic happens at initialization of the class (where the graph is generated), while the actual sklearn interface methods are very simple one-liners.
-# 
-# We can now define a simple fuction which trains the VAE using mini-batches:
 
-# In[5]:
 
+# Train Function
 def train(network_architecture, learning_rate=0.001,
-          batch_size=100, training_epochs=10, display_step=5):
+          batch_size=100, training_epochs=10, display_step=1):
     vae = VariationalAutoencoder(network_architecture, 
                                  learning_rate=learning_rate, 
                                  batch_size=batch_size)
@@ -245,8 +231,8 @@ def train(network_architecture, learning_rate=0.001,
         total_batch = int(n_samples / batch_size)
         # Loop over all batches
         for i in range(total_batch):
-            #batch_xs= dataset.next_batch(batch_size).reshape(batch_size,1024,3)[:,:,1]
             batch_xs= dataset.next_batch(batch_size).reshape(batch_size,1024)
+#            batch_xs= dataset.next_batch(batch_size).reshape(batch_size, 32, 32, 1)
             # Fit training using batch data
             cost = vae.partial_fit(batch_xs)
             # Compute average loss
@@ -261,9 +247,8 @@ def train(network_architecture, learning_rate=0.001,
 
 # ## Illustrating reconstruction quality
 
-# We can now train a VAE on MNIST by just specifying the network topology. We start with training a VAE with a 20-dimensional latent space.
+# We can now train a VAE on SVHN by just specifying the network topology. We start with training a VAE with a 20-dimensional latent space.
 
-# In[6]:
 
 network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neurons
          n_hidden_recog_2=500, # 2nd layer encoder neurons
@@ -277,20 +262,8 @@ vae = train(network_architecture, training_epochs=30)
 
 # Based on this we can sample some test inputs and visualize how well the VAE can reconstruct those. In general the VAE does really well.
 
-# In[7]:
-
-#play = dataset.next_test_batch(100).reshape(100,1024)
-#x_sample = play[:,:,1][2,].reshape(1,1024)
 x_sample = dataset.next_test_batch(100)[0].reshape(100,1024)
 x_reconstruct = vae.reconstruct(x_sample)
-# plt.imshow(x_sample.reshape(32, 32), vmin=0, vmax=1, cmap="gray")
-# x_reconstruct = vae.reconstruct(x_sample)
-
-
-#x_sample1 = play[2]
-#plt.imshow(x_sample1.reshape(32, 32,3), vmin=0, vmax=1)
-
-
 plt.figure(figsize=(8, 12))
 for i in range(5):
 
@@ -309,8 +282,6 @@ plt.tight_layout()
 
 # Next, we train a VAE with 2d latent space and illustrates how the encoder (the recognition network) encodes some of the labeled inputs (collapsing the Gaussian distribution in latent space to its mean). This gives us some insights into the structure of the learned manifold (latent space)
 
-# In[8]:
-
 network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neurons
          n_hidden_recog_2=500, # 2nd layer encoder neurons
          n_hidden_gener_1=500, #          st layer decoder neurons
@@ -318,17 +289,14 @@ network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neuron
          n_input=1024, 
          n_z=2)  # dimensionality of latent space
 
-vae_2d = train(network_architecture, training_epochs=30)
+vae_2d = train(network_architecture, training_epochs=10)
 
-
-# In[9]:
 
 #x_sample = dataset.next_test_batch(5000).reshape(100,1024,3)[:,:,1].reshape(5000,1024)
 x_sample, y_sample = dataset.next_test_batch(5000)
 x_sample = x_sample.reshape(5000,1024)
 z_mu = vae_2d.transform(x_sample)
 plt.figure(figsize=(8, 6)) 
-# plt.scatter(z_mu[:, 0], z_mu[:, 1], c=np.argmax(y_sample, 1))
 plt.scatter(z_mu[:, 0], z_mu[:, 1], c=y_sample.reshape(5000))
 plt.colorbar()
 plt.grid()
@@ -336,13 +304,9 @@ plt.grid()
 
 # An other way of getting insights into the latent space is to use the generator network to plot reconstrunctions at the positions in the latent space for which they have been generated:
 
-# In[10]:
-
 nx = ny = 20
 x_values = np.linspace(-3, 3, nx)
 y_values = np.linspace(-3, 3, ny)
-
-
 
 canvas = np.empty((32*ny, 32*nx))
 for i, yi in enumerate(x_values):
@@ -355,18 +319,4 @@ plt.figure(figsize=(8, 10))
 Xi, Yi = np.meshgrid(x_values, y_values)
 plt.imshow(canvas, origin="upper", cmap="gray")
 plt.tight_layout()
-
-
-# ## Summary
-# In summary, tensorflow is well suited to rapidly implement a prototype of machine learning models like VAE. The resulting code could be easily executed on GPUs as well (requiring just that tensorflow with GPU support was installed). VAE allows learning probabilistic encoders and decoders of data in an end-to-end fashion.
-
-# In[11]:
-'''
-get_ipython().magic('load_ext watermark')
-get_ipython().magic('watermark -a "Jan Hendrik Metzen" -d -v -m -p numpy,scikit-learn,tensorflow')
-'''
-
-# In[ ]:
-
-
 
