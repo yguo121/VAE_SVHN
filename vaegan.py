@@ -1,5 +1,16 @@
-'''TensorFlow implementation of http://arxiv.org/pdf/1511.06434.pdf'''
+"""
+Project Name: Variational Autoencoder (Improved Model)
+Author: Yue Jin, Dinghui Li
+Date: Dec 18, 2017
 
+Reference: 
+    https://github.com/jlindsey15/VAEGAN
+    
+
+"""
+
+
+# Import Packages
 from __future__ import absolute_import, division, print_function
 
 import math
@@ -12,17 +23,20 @@ from prettytensor import pretty_tensor_image_methods
 import scipy.misc
 import tensorflow as tf
 from scipy.misc import imsave
-
+from matplotlib import pyplot as plt
 from deconv import deconv2d
 #from progressbar import ETA, Bar, Percentage, ProgressBar
 from dataset import *
-dataset = SVHNDataset('.')
+
+
+
+
 #%%
 flags = tf.flags
 logging = tf.logging
 
 flags.DEFINE_integer("batch_size", 100, "batch size")
-flags.DEFINE_integer("updates_per_epoch", 100, "number of updates per epoch")
+flags.DEFINE_integer("updates_per_epoch", 50, "number of updates per epoch")
 flags.DEFINE_integer("max_epoch", 1000, "max epoch")
 flags.DEFINE_float("g_learning_rate", 1e-2, "learning rate")
 flags.DEFINE_float("d_learning_rate", 1e-3, "learning rate")
@@ -125,11 +139,10 @@ def get_generator_loss(D2):
 
 
 #%%
+    
+# Load Data
+dataset = SVHNDataset('.')
 
-#data_directory = os.path.join(FLAGS.working_directory, "MNIST")
-#if not os.path.exists(data_directory):
-#os.makedirs(data_directory)
-# mnist = input_data.read_data_sets(data_directory, one_hot=True)
 
 input_tensor = tf.placeholder(tf.float32, [FLAGS.batch_size, 32 * 32])
 
@@ -168,13 +181,12 @@ params = tf.trainable_variables()
 E_params = params[:E_params_num]
 D_params = params[E_params_num:D_params_num]
 G_params = params[D_params_num:]
-#    train_discrimator = optimizer.minimize(loss=D_loss, var_list=D_params)
-#    train_generator = optimizer.minimize(loss=G_loss, var_list=G_params)
 train_encoder = pt.apply_optimizer(optimizer, losses=[reconstruction_loss], regularize=True, include_marked=True, var_list=E_params)
 train_discrimator = pt.apply_optimizer(optimizer, losses=[D_loss], regularize=True, include_marked=True, var_list=D_params)
 train_generator = pt.apply_optimizer(optimizer, losses=[G_loss], regularize=True, include_marked=True, var_list=G_params)
 #%%
-init = tf.initialize_all_variables()
+init = tf.global_variables_initializer()
+
 
 with tf.Session() as sess:
     sess.run(init)
@@ -206,16 +218,21 @@ with tf.Session() as sess:
         discriminator_loss = discriminator_loss / FLAGS.updates_per_epoch
         generator_loss = generator_loss / FLAGS.updates_per_epoch
         encoder_loss = encoder_loss / FLAGS.updates_per_epoch
-    
-        print("Enc. loss %f, Gen. loss %f, Disc. loss: %f" % (encoder_loss, generator_loss,
-                                                discriminator_loss))
-    
-        '''
-        for k in range(FLAGS.batch_size):
-            imgs_folder = os.path.join(FLAGS.working_directory, 'imgs')
-            if not os.path.exists(imgs_folder):
-                os.makedirs(imgs_folder)
-    
-            imsave(os.path.join(imgs_folder, '%d.png') % k,
-                   imgs[k].reshape(32, 32))
-       '''     
+        print("Epoc %d: Enc. loss %4.2f, Gen. loss %4.2f, Disc. loss %4.2f, Total %4.2f" % (epoch, encoder_loss, generator_loss,
+                                                discriminator_loss, encoder_loss + generator_loss + discriminator_loss))
+        # Plot
+        imgs_folder = os.path.join(FLAGS.working_directory, 'imgs')
+        if not os.path.exists(imgs_folder):
+            os.makedirs(imgs_folder)
+        img = plt.figure(figsize=(8, 12))
+        for i in range(5):
+            plt.subplot(5, 2, 2*i + 1)
+            plt.imshow(x[i].reshape(32, 32), vmin=0, vmax=1, cmap="gray")
+            plt.title("Test input")
+            plt.colorbar()
+            plt.subplot(5, 2, 2*i + 2)
+            plt.imshow(imgs[i].reshape(32, 32), vmin=0, vmax=1, cmap="gray")
+            plt.title("Reconstruction")
+            plt.colorbar()
+        plt.suptitle('Epoc %d' %epoch)
+        img.savefig(os.path.join(imgs_folder, '%d.png')  %epoch, dpi = img.dpi)   
