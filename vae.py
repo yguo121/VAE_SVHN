@@ -19,10 +19,10 @@ import matplotlib
 from matplotlib import pyplot as plt
 from dataset import *
 from sys import exit
-from IPython import get_ipython
+# from IPython import get_ipython
 
 # Some Settings
-get_ipython().magic('matplotlib inline')
+# get_ipython().magic('matplotlib inline')
 np.random.seed(0)
 tf.set_random_seed(0)
 
@@ -258,7 +258,7 @@ network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neuron
          n_input=1024, # 
          n_z=20)  # dimensionality of latent space
 
-vae = train(network_architecture, training_epochs=30)
+vae = train(network_architecture, training_epochs=50)
 
 
 # Based on this we can sample some test inputs and visualize how well the VAE can reconstruct those. In general the VAE does really well.
@@ -290,7 +290,7 @@ network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neuron
          n_input=1024, 
          n_z=2)  # dimensionality of latent space
 
-vae_2d = train(network_architecture, training_epochs=10)
+vae_2d = train(network_architecture, training_epochs=50)
 
 
 #x_sample = dataset.next_test_batch(5000).reshape(100,1024,3)[:,:,1].reshape(5000,1024)
