@@ -21,6 +21,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 from dataset import *
 from sys import exit
+from IPython import get_ipython
 
 # Some Settings
 get_ipython().magic('matplotlib inline')
