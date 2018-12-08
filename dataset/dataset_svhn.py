@@ -7,7 +7,7 @@ from sys import exit
 from skimage.color import rgb2gray
 
 class SVHNDataset(Dataset):
-    def __init__(self, db_path='/Users/yuejin/Dropbox/Courseworks/AML/adv-ml/data/svhn', use_extra=False):
+    def __init__(self, db_path='.', use_extra=False):
         Dataset.__init__(self)
         print("Loading files")
         self.data_dims = [32, 32, 3]
