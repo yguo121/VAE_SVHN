@@ -19,10 +19,10 @@ import matplotlib
 from matplotlib import pyplot as plt
 from dataset import *
 from sys import exit
-# from IPython import get_ipython
+from IPython import get_ipython
 
 # Some Settings
-# get_ipython().magic('matplotlib inline')
+get_ipython().magic('matplotlib inline')
 np.random.seed(0)
 tf.set_random_seed(0)
 
