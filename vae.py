@@ -5,15 +5,13 @@ Date: Dec 16, 2017
 
 Reference: 
     https://jmetzen.github.io/2015-11-27/vae.html
-    
-
 """
 
 
 # import packages
 from __future__ import division
 from __future__ import print_function
-import os.path
+import os
 import tensorflow as tf
 import numpy as np
 import scipy.io as sio
@@ -21,15 +19,17 @@ import matplotlib
 from matplotlib import pyplot as plt
 from dataset import *
 from sys import exit
-from IPython import get_ipython
+# from IPython import get_ipython
 
 # Some Settings
-get_ipython().magic('matplotlib inline')
+# get_ipython().magic('matplotlib inline')
 np.random.seed(0)
 tf.set_random_seed(0)
 
 
 # Load SVHN Data
+print(os.getcwd())
+print(123123123123)
 dataset = SVHNDataset('.')
 n_samples=dataset.train_size
 
